@@ -1,0 +1,281 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="container" style="width: 60%; margin: auto">
+    <!--    新建按钮、批量新建、搜索框      -->
+    <div class="clearfix" style="margin-bottom: 5px">
+        <button id="btnAdd" type="button" class="btn btn-success">
+            <span class="glyphicon glyphicon-plus-sign" aria-hidden="true"></span>
+            <span>新建部门</span>
+        </button>
+        <input type="button" value="批量新建部门" class="btn btn-success" data-toggle="modal"
+               data-target="#mulAddModal">
+        <div style="float: right; width: 300px;">
+            <form method="get">
+                <div class="input-group">
+                    <input type="text" name="q" class="form-control" placeholder="Search for depart"
+                           value="{{ search_data }}">
+                    <span class="input-group-btn">
+                        <button class="btn btn-default" type="submit">
+                            <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+                        </button>
+                    </span>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!--    列表    -->
+    <div class="panel panel-primary" style="margin-bottom: 0">
+        <div class="panel-heading">
+            <span class="glyphicon glyphicon-th-list" aria-hidden="true"></span>
+            <span class="panel-title">部门列表</span>
+        </div>
+        <table class="table table-bordered table-hover text-center">
+            <thead>
+            <tr>
+                <th style="text-align: center;">ID</th>
+                <th style="text-align: center;">名称</th>
+                <th style="text-align: center;">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for obj in queryset %}
+            <tr>
+                <td>{{ obj.id }}</td>
+                <td>{{ obj.title }}</td>
+                <td>
+                    <input depart_id="{{ obj.id }}" type="button" class="btn btn-primary btn-xs btnEdit" value="编辑">
+                    <input depart_id="{{ obj.id }}" depart_title="{{ obj.title }}" type="button"
+                           class="btn btn-danger btn-xs btnDelete" value="删除">
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <!--    页码    -->
+    <ul class="pagination" style="margin: 6px 0">
+        {{ page_string }}
+    </ul>
+</div>
+<!-- 新建/编辑（弹窗对话框） -->
+<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="myModalLabel"></h4>
+            </div>
+            <div class="modal-body">
+                <form id="formAdd">
+                    <div class="clearfix">
+                        {% for field in form %}
+                            <div class="col-xs-6">
+                                <div class="form-group" style="position: relative; margin-bottom: 20px;">
+                                    <label>{{ field.label }}</label>
+                                    {{ field }}
+                                    <span class="errorMsg" style="color: red; position: absolute;"></span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="btnSave" type="button" class="btn btn-primary">保 存</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">取 消</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 删除（弹窗对话框） -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="alert alert-danger alert-dismissible fade in" role="alert">
+            <h4 id="tip_text"></h4>
+            <p style="text-align: right;">
+                <button id="btnConfirmDelete" type="button" class="btn btn-danger">确 定</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">取 消</button>
+            </p>
+        </div>
+    </div>
+</div>
+<!--    批量新建部门（文件上传）（弹窗对话框）    -->
+<div class="modal fade" id="mulAddModal" tabindex="-1" role="dialog" aria-labelledby="mulAddModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="mulAddModalLabel">批量新建部门</h4>
+            </div>
+            <div class="modal-body">
+                <p>注意：上传文件须为Excel文件，文件内容的第一列数据将用来新建部门</p>
+                <form method="post" enctype="multipart/form-data" action="/depart/multipart/add/">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <input type="file" name="excel">
+                    </div>
+                    <div style="text-align: right;">
+                        <input type="submit" value="上传" class="btn btn-success">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">取 消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block js %}
+<script type="text/javascript">
+    var EDIT_ID;
+    var DELETE_ID;
+
+    $(function () {
+        bindBtnAddEvent();
+        bindBtnSaveEvent();
+        bindBtnEditEvent();
+        bindBtnDeleteEvent();
+        bindBtnConfirmDeleteEvent();
+    })
+
+
+    function bindBtnAddEvent() {
+        $("#btnAdd").click(function () {
+            EDIT_ID = undefined;
+            $("#formAdd")[0].reset();
+            $("#myModalLabel").text("新建部门");
+            $('#myModal').modal('show');
+        })
+    }
+
+
+    function bindBtnSaveEvent() {
+        $("#btnSave").click(function () {
+            $(".errorMsg").empty();
+            if (EDIT_ID) {
+                doEdit();
+            } else {
+                doAdd();
+            }
+        })
+    }
+
+
+    function doAdd() {
+        $.ajax({
+            url: "/depart/add/",
+            type: "post",
+            data: $("#formAdd").serialize(),
+            dataType: "JSON",
+            success: function (res) {
+                if (res.status) {
+                    $("#formAdd")[0].reset();   // 清空表单  $("#formAdd")是jQuery对象 --> $("#formAdd")[0] DOM对象
+                    $('#myModal').modal('hide');
+                    location.reload();
+                } else {
+                    $.each(res.error, function (name, errorList) {
+                        $("#id_" + name).next().text(errorList[0]);
+                    })
+                }
+            }
+        })
+    }
+
+
+    function bindBtnEditEvent() {
+        $(".btnEdit").click(function () {
+            $("#formAdd")[0].reset();
+            EDIT_ID = $(this).attr("depart_id");
+            $.ajax({
+                url: "/depart/detail/",
+                type: "get",
+                data: {
+                    depart_id: EDIT_ID
+                },
+                dataType: "JSON",
+                success: function (res) {
+                    if (res.status) {
+                        $.each(res.data, function (name, value) {
+                            $("#id_" + name).val(value);
+                        })
+                        $("#myModalLabel").text("部门名称更改");
+                        $('#myModal').modal('show');
+                    } else {
+                        alert(res.error);
+                    }
+                }
+            })
+        })
+    }
+
+
+    function doEdit() {
+        $.ajax({
+            url: "/depart/edit/" + "?depart_id=" + EDIT_ID,
+            type: "post",
+            data: $("#formAdd").serialize(),
+            dataType: "JSON",
+            success: function (res) {
+                if (res.status) {
+                    $("#formAdd")[0].reset();
+                    $('#myModal').modal('hide');
+                    location.reload();
+                } else {
+                    if (res.tips) {
+                        alert(res.tips);
+                    } else {
+                        $.each(res.error, function (name, errorList) {
+                            $("#id_" + name).next().text(errorList[0]);
+                        })
+                    }
+                }
+            }
+        })
+    }
+
+
+    function bindBtnDeleteEvent() {
+        $(".btnDelete").click(function () {
+            DELETE_ID = $(this).attr("depart_id");
+            var depart_title = $(this).attr("depart_title");
+            var tip_text = "是否确认删除[ " + depart_title + " ]?"
+            $("#tip_text").text(tip_text)
+            $("#deleteModal").modal('show');
+        })
+    }
+
+
+    function bindBtnConfirmDeleteEvent() {
+        $("#btnConfirmDelete").click(function () {
+            $.ajax({
+                url: "/depart/delete/",
+                type: "GET",
+                data: {
+                    depart_id: DELETE_ID
+                },
+                dataType: "JSON",
+                success: function (res) {
+                    if (res.status) {
+                        $("#deleteModal").modal('hide');
+                        // 在页面上将当前一行数据删除（js）
+                        // $("tr[uid='" + DELETE_ID + "']").remove();
+                        // 要删除的ID制空
+                        // DELETE_ID = 0;
+
+                        // 简单的思路：
+                        location.reload();
+                    } else {
+                        // 删除失败
+                        alert(res.error);
+                    }
+                }
+            })
+        })
+    }
+</script>
+{% endblock %}

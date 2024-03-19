@@ -1,0 +1,276 @@
+{% extends 'layout.html' %}
+{% load static %}
+{% block css %}
+<link rel="stylesheet" href="{% static 'plugins/bootstrap-datepicker/css/bootstrap-datepicker.min.css' %}">
+{% endblock %}
+
+
+{% block content %}
+<div class="container">
+    <!--    新建按钮与搜索框    -->
+    <div class="clearfix" style="margin-bottom: 5px">
+        <a id="btnAdd" class="btn btn-success">
+            <span class="glyphicon glyphicon-plus-sign" aria-hidden="true"></span>
+            <span>新增员工</span>
+        </a>
+        <div style="float: right; width: 300px;">
+            <form method="get">
+                <div class="input-group">
+                    <input type="text" name="q" class="form-control" placeholder="Search for name"
+                           value="{{ search_data }}">
+                    <span class="input-group-btn">
+                        <button class="btn btn-default" type="submit">
+                            <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+                        </button>
+                    </span>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!--    列表    -->
+    <div class="panel panel-primary" style="margin-bottom: 0">
+        <div class="panel-heading">
+            <span class="glyphicon glyphicon-th-list" aria-hidden="true"></span>
+            <span class="panel-title">员工列表</span>
+        </div>
+        <table class="table table-bordered table-hover text-center">
+            <thead>
+            <tr>
+                <th style="text-align: center;">ID</th>
+                <th style="text-align: center;">姓名</th>
+                <th style="text-align: center;">性别</th>
+                <th style="text-align: center;">入职时间</th>
+                <th style="text-align: center;">部门</th>
+                <th style="text-align: center;">月薪</th>
+                <th style="text-align: center;">手机号码</th>
+                <th style="text-align: center;">出生日期</th>
+                <th style="text-align: center;">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for obj in queryset %}
+            <tr>
+                <td>{{ obj.id }}</td>
+                <td>{{ obj.name }}</td>
+                <td>{{ obj.get_gender_display }}</td>
+                <td>{{ obj.create_date|date:"Y-m-d" }}</td>
+                <td>{{ obj.depart.title }}</td>
+                <td>{{ obj.account }}</td>
+                <td>{{ obj.mobile }}</td>
+                <td>{{ obj.birth_date|date:"Y-m-d" }}</td>
+                <td>
+                    <input edit_id="{{ obj.id }}" type="button" class="btn btn-primary btn-xs btnEdit" value="编辑">
+                    <input delete_id="{{ obj.id }}" delete_title="{{ obj.name }}" type="button"
+                           class="btn btn-danger btn-xs btnDelete" value="删除">
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <!--    页码    -->
+    <ul class="pagination" style="margin: 6px 0">
+        {{ page_string }}
+    </ul>
+</div>
+<!-- 新建/编辑（弹窗对话框） -->
+<div class="modal fade" id="addEditModal" tabindex="-1" role="dialog" aria-labelledby="addEditModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="addEditModalLabel"></h4>
+            </div>
+            <div class="modal-body">
+                <form id="addEditForm">
+                    <div class="clearfix">
+                        {% for field in form %}
+                        <div class="col-xs-6">
+                            <div class="form-group" style="position: relative; margin-bottom: 20px;">
+                                <label>{{ field.label }}</label>
+                                {{ field }}
+                                <span class="errorMsg" style="color: red; position: absolute;"></span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="btnSave" type="button" class="btn btn-primary">保 存</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">取 消</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 删除（弹窗对话框） -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="alert alert-danger alert-dismissible fade in" role="alert">
+            <h4 id="tip_text"></h4>
+            <p style="text-align: right;">
+                <button id="btnConfirmDelete" type="button" class="btn btn-danger">确 定</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">取 消</button>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block js %}
+<script src="{% static 'plugins/bootstrap-datepicker/js/bootstrap-datepicker.js' %}"></script>
+<script src="{% static 'plugins/bootstrap-datepicker/locales/bootstrap-datepicker.zh-CN.min.js' %}"></script>
+<script>
+    $(function () {
+        $('#id_create_date').datepicker({
+            format: 'yyyy-mm-dd',
+            todayHighlight: true,
+            language: "zh-CN",
+            autoclose: true
+        });
+        $('#id_birth_date').datepicker({
+            format: 'yyyy-mm-dd',
+            todayHighlight: true,
+            language: "zh-CN",
+            autoclose: true
+        });
+    })
+</script>
+<script type="text/javascript">
+    var EDIT_ID;
+    var DELETE_ID;
+
+    $(function () {
+        bindBtnAddEvent();
+        bindBtnSaveEvent();
+        bindBtnEditEvent();
+        bindBtnDeleteEvent();
+        bindBtnConfirmDeleteEvent();
+    })
+
+    function bindBtnAddEvent() {
+        $("#btnAdd").click(function () {
+            EDIT_ID = undefined;
+            $("#addEditForm")[0].reset();
+            $("#addEditModalLabel").text("新建部门");
+            $('#addEditModal').modal('show');
+        })
+    }
+
+    function bindBtnSaveEvent() {
+        $("#btnSave").click(function () {
+            $(".errorMsg").empty();
+            if (EDIT_ID) {
+                doEdit();
+            } else {
+                doAdd();
+            }
+        })
+    }
+
+    function doAdd() {
+        $.ajax({
+            url: "/user/add/",
+            type: "post",
+            data: $("#addEditForm").serialize(),
+            dataType: "JSON",
+            success: function (res) {
+                if (res.status) {
+                    $("#addEditForm")[0].reset();
+                    $('#addEditModal').modal('hide');
+                    location.reload();
+                } else {
+                    $.each(res.error, function (name, errorList) {
+                        $("#id_" + name).next().text(errorList[0]);
+                    })
+                }
+            }
+        })
+    }
+
+    function bindBtnEditEvent() {
+        $(".btnEdit").click(function () {
+            $("#addEditForm")[0].reset();
+            EDIT_ID = $(this).attr("edit_id");
+            $.ajax({
+                url: "/user/detail/",
+                type: "get",
+                data: {
+                    edit_id: EDIT_ID
+                },
+                dataType: "JSON",
+                success: function (res) {
+                    if (res.status) {
+                        $.each(res.data, function (name, value) {
+                            $("#id_" + name).val(value);
+                        })
+                        $("#addEditModalLabel").text("员工信息更改");
+                        $('#addEditModal').modal('show');
+                    } else {
+                        alert(res.error);
+                    }
+                }
+            })
+        })
+    }
+
+    function doEdit() {
+        $.ajax({
+            url: "/user/edit/" + "?edit_id=" + EDIT_ID,
+            type: "post",
+            data: $("#addEditForm").serialize(),
+            dataType: "JSON",
+            success: function (res) {
+                if (res.status) {
+                    $("#addEditForm")[0].reset();
+                    $('#addEditModal').modal('hide');
+                    location.reload();
+                } else {
+                    if (res.tips) {
+                        alert(res.tips);
+                    } else {
+                        $.each(res.error, function (name, errorList) {
+                            $("#id_" + name).next().text(errorList[0]);
+                        })
+                    }
+                }
+            }
+        })
+    }
+
+    function bindBtnDeleteEvent() {
+        $(".btnDelete").click(function () {
+            DELETE_ID = $(this).attr("delete_id");
+            var delete_title = $(this).attr("delete_title");
+            var tip_text = "是否确认删除[ " + delete_title + " ]?"
+            $("#tip_text").text(tip_text)
+            $("#deleteModal").modal('show');
+        })
+    }
+
+    function bindBtnConfirmDeleteEvent() {
+        $("#btnConfirmDelete").click(function () {
+            $.ajax({
+                url: "/user/delete/",
+                type: "GET",
+                data: {
+                    delete_id: DELETE_ID
+                },
+                dataType: "JSON",
+                success: function (res) {
+                    if (res.status) {
+                        $("#deleteModal").modal('hide');
+                        location.reload();
+                    } else {
+                        alert(res.error);
+                    }
+                }
+            })
+        })
+    }
+</script>
+{% endblock %}
+
